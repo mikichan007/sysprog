@@ -5,7 +5,9 @@
 #include <signal.h>
 #include <errno.h>
 #include <string.h>
+#include <time.h>
 #include "libcoro.h"
+
 
 #define handle_error() ({printf("Error %s\n", strerror(errno)); exit(-1);})
 
@@ -26,6 +28,10 @@ struct coro {
 	long long switch_count;
 	/** Links in the coroutine list, used by scheduler. */
 	struct coro *next, *prev;
+	/** Total working time in seconds **/
+	double total_work_time;
+	/** Start time of the last call of coro **/
+	clock_t last_start_clock;
 };
 
 /**
@@ -59,6 +65,7 @@ coro_list_add(struct coro *c)
 		coro_list->prev = c;
 	coro_list = c;
 }
+
 
 /** Remove a coroutine from the list. */
 static void
@@ -98,14 +105,29 @@ coro_delete(struct coro *c)
 	free(c);
 }
 
+double
+coro_last_start_work_time(struct coro* c) {
+	clock_t now = clock();
+	return ((double)(now - c->last_start_clock) / CLOCKS_PER_SEC);
+}
+
+double
+coro_work_time(struct coro* c) {
+	return c->total_work_time;
+}
+
 /** Switch the current coroutine to an arbitrary one. */
 static void
 coro_yield_to(struct coro *to)
 {
 	struct coro *from = coro_this_ptr;
 	++from->switch_count;
-	if (sigsetjmp(from->ctx, 0) == 0)
+	if (sigsetjmp(from->ctx, 0) == 0) {
+		clock_t now = clock();
+		from->total_work_time += coro_last_start_work_time(from);
+		to->last_start_clock = clock();
 		siglongjmp(to->ctx, 1);
+	}
 	coro_this_ptr = from;
 }
 
@@ -144,6 +166,7 @@ coro_sched_wait(void)
 	return NULL;
 }
 
+
 struct coro *
 coro_this(void)
 {
@@ -172,7 +195,9 @@ coro_body(int signum)
 	 * finaly start work.
 	 */
 	coro_this_ptr = c;
+	c->last_start_clock = clock();
 	c->ret = c->func(c->func_arg);
+	c->total_work_time += coro_last_start_work_time(c);
 	c->is_finished = true;
 	/* Can not return - 'ret' address is invalid already! */
 	if (! is_sched_waiting) {

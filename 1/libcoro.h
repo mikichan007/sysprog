@@ -47,4 +47,10 @@ coro_delete(struct coro *c);
 void
 coro_yield(void);
 
+double
+coro_work_time(struct coro* c);
+
+double
+coro_last_start_work_time(struct coro* c);
+
 #endif /* LIBCORO_INCLUDED */
