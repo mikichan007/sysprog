@@ -15,7 +15,7 @@ $> touch "my file with whitespaces in name.txt"
 $> ls
 my file with whitespaces in name.txt
 
-$> echo '123 456 \" str \"'
+$> x
 123 456 \" str \"
 
 $> echo '123 456 \" str \"' > "my file with whitespaces in name.txt"
