@@ -47,7 +47,7 @@ coro_delete(struct coro *c);
 void
 coro_yield(void);
 
-double
+int
 coro_work_time(struct coro* c);
 
 double

@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include "libcoro.h"
 #include "vector.h"
+#include <time.h>
+
 
 #define INF ~(1<<31)
 
@@ -38,6 +40,7 @@ struct vector* read_array(char* filename) {
 		vector_push(array, num);
 		num = malloc(sizeof(int));
 	}
+	free(num);
 
 	fclose(input_file);
 	return array;
@@ -101,6 +104,8 @@ void sort(struct vector* array, struct coro* c) {
 
 		if (coro_last_start_work_time(c) > max_coro_time_in_seconds()) coro_yield();
 	}
+
+	vector_delete(segments_stack);
 }
 
 
@@ -148,7 +153,10 @@ struct vector *merge(struct vector **arrays, int arrays_num) {
 				}
 			}
 		}
-		if (min_p == -1) break;
+		if (min_p == -1) {
+			free(min_num);
+			break;
+		}
 		pointers[min_p] = pointers[min_p] < arrays[min_p]->top ? pointers[min_p] + 1 : -1;
 		vector_push(merged, min_num);
 	}
@@ -190,17 +198,22 @@ main(int argc, char **argv)
 		vector_push(filenames, argv[files_start_index + i]);
 	}
 
-	printf("Coro report:\n");
+	clock_t begin = clock();
 	struct vector* coros = execute_by_pull(coroutine_func_f, filenames, CORO_NUM);
+	int total_time = ((double)(clock() - begin) / CLOCKS_PER_SEC) * 1000000;
+
+
+	printf("Coro report:\n");
 	struct coro* c;
 	for (int i = 0; i <= coros->top; i++) {
 		c = coros->data[i];
-		printf("---------\nCoro %d:\nSwitch count: %lld\nExecution time: %f\n", 
+		printf("---------\nCoro %d:\nSwitch count: %lld\nExecution time: %d\n", 
 			   i,
 			   coro_switch_count(c),
 			   coro_work_time(c));
 		coro_delete(c);
 	}
+	printf("TOTAL EXECUTION TIME: %d\n", total_time);
 	
 	struct vector* arrays[files_num];
 	for (int i = 0; i < files_num; i++) arrays[i] = read_array(argv[files_start_index + 1]);
@@ -210,6 +223,8 @@ main(int argc, char **argv)
 
 	vector_delete(merged);
 	for (int i = 0; i < files_num; i++) vector_delete(arrays[i]);
+
+	vector_delete(filenames);
 
 	return 0;
 }

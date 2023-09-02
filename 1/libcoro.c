@@ -111,9 +111,9 @@ coro_last_start_work_time(struct coro* c) {
 	return ((double)(now - c->last_start_clock) / CLOCKS_PER_SEC);
 }
 
-double
+int
 coro_work_time(struct coro* c) {
-	return c->total_work_time;
+	return c->total_work_time * 1000000;
 }
 
 /** Switch the current coroutine to an arbitrary one. */
